@@ -11,15 +11,9 @@ type KafkaQueue struct {
 	producer *kafka.Producer
 }
 
-func NewKafkaQueue() *KafkaQueue {
+func NewKafkaQueue(opts *KafkaOptions) *KafkaQueue {
 
-	p, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": os.Getenv("KAFKA_BOOTSTRAP_SERVERS"),
-		"client.id":         os.Getenv("KAFKA_CLIENT_ID"),
-		//"bootstrap.servers": "localhost:9094",
-		//"client.id":         "devcloud",
-		"acks": "all"}) // "all"
-
+	p, err := kafka.NewProducer(opts.ConfigMap())
 	if err != nil {
 		fmt.Printf("Failed to create producer: %s\n", err)
 		os.Exit(1)
@@ -28,9 +22,9 @@ func NewKafkaQueue() *KafkaQueue {
 	return &KafkaQueue{p}
 }
 
-func (k *KafkaQueue) Write(test Test) error {
-	topic := test.Queue
-	msg, err := json.Marshal(test)
+func (k *KafkaQueue) Write(job Job) error {
+	topic := job.Queue
+	msg, err := json.Marshal(job)
 	if err != nil {
 
 	}

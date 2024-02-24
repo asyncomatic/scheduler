@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"github.com/caitlinelfring/go-env-default"
 	"net/http"
 	"scheduler/internal"
 )
@@ -11,22 +13,28 @@ func routeNotFound(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	store := internal.NewPostgresStore()
+	route := env.GetDefault("SCHEDULER_ROUTE", "/jobs")
+	port := fmt.Sprintf(":%s", env.GetDefault("SCHEDULER_PORT", "8080"))
+
+	storeopts := internal.NewPostgresOptions()
+	store := internal.NewPostgresStore(storeopts)
 	defer func(DbStore *sql.DB) {
 		_ = DbStore.Close()
 	}(store.DbStore)
 
-	queue := internal.NewKafkaQueue()
-	testsHandler := internal.NewTestsHandler(store, queue)
+	queueopts := internal.NewKafkaOptions()
+	queue := internal.NewKafkaQueue(queueopts)
+
+	jobsHandler := internal.NewJobsHandler(route, store, queue)
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/tests", testsHandler)
-	mux.Handle("/tests/", testsHandler)
+	mux.Handle(route, jobsHandler)
+	mux.Handle(fmt.Sprintf("%s/", route), jobsHandler)
 
 	mux.Handle("/", http.HandlerFunc(routeNotFound))
 
-	err := http.ListenAndServe(":8080", mux)
+	err := http.ListenAndServe(port, mux)
 	if err != nil {
 		return
 	}

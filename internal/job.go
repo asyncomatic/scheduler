@@ -1,6 +1,6 @@
 package internal
 
-type Test struct {
+type Job struct {
 	Id          int    `json:"id"`
 	Delay       int    `json:"delay"`
 	Queue       string `json:"queue"`

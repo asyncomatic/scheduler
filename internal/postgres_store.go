@@ -3,10 +3,8 @@ package internal
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	_ "github.com/lib/pq"
 	"net/url"
-	"os"
 	"strconv"
 )
 
@@ -14,26 +12,8 @@ type PostgresStore struct {
 	DbStore *sql.DB
 }
 
-func NewPostgresStore() *PostgresStore {
-	host := os.Getenv("POSTGRES_HOST")
-	port, err := strconv.Atoi(os.Getenv("POSTGRES_PORT"))
-	if err != nil {
-		panic(err)
-	}
-	username := os.Getenv("POSTGRES_USER")
-	pass := os.Getenv("POSTGRES_PASSWORD")
-	dbname := os.Getenv("POSTGRES_DB")
-
-	//host := "localhost"
-	//port := 5432
-	//username := "postgres"
-	//pass := "password"
-	//dbname := "devcloud"
-
-	options := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		host, port, username, pass, dbname)
-
-	db, err := sql.Open("postgres", options)
+func NewPostgresStore(opts *PostgresOptions) *PostgresStore {
+	db, err := sql.Open("postgres", opts.ConnString())
 	if err != nil {
 		panic(err)
 	}
@@ -41,24 +21,21 @@ func NewPostgresStore() *PostgresStore {
 	return &PostgresStore{db}
 }
 
-func (s PostgresStore) Add(test Test) (int, error) {
+func (s PostgresStore) Add(job Job) (int, error) {
 	id := 0
-	sqlStatement := `
-		INSERT INTO tests (delay, queue, team_id, user_id, description, payload)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id`
+	sqlStatement := `INSERT INTO jobs (delay, queue, team_id, user_id, description, payload)
+					VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
 
 	err := s.DbStore.QueryRow(sqlStatement,
-		test.Delay, test.Queue, test.TeamId, test.UserId, test.Description, test.Payload).Scan(&id)
+		job.Delay, job.Queue, job.TeamId, job.UserId, job.Description, job.Payload).Scan(&id)
 
 	return id, err
 }
 
-func (s PostgresStore) List(values url.Values) ([]Test, error) {
-	tests := make([]Test, 0)
-	sqlStatement := `
-		SELECT id, delay, queue, team_id, user_id, description, payload 
-		FROM tests LIMIT 100`
+func (s PostgresStore) List(values url.Values) ([]Job, error) {
+	jobs := make([]Job, 0)
+	sqlStatement := `SELECT id, delay, queue, team_id, user_id, description, payload
+					FROM jobs LIMIT 100`
 
 	rows, err := s.DbStore.Query(sqlStatement)
 	if err != nil {
@@ -67,41 +44,40 @@ func (s PostgresStore) List(values url.Values) ([]Test, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		test := &Test{}
-		err = rows.Scan(&test.Id, &test.Delay, &test.Queue, &test.TeamId,
-			&test.UserId, &test.Description, &test.Payload)
+		job := &Job{}
+		err = rows.Scan(&job.Id, &job.Delay, &job.Queue, &job.TeamId,
+			&job.UserId, &job.Description, &job.Payload)
 		if err != nil {
 			panic(err)
 		}
 
-		tests = append(tests, *test)
+		jobs = append(jobs, *job)
 	}
 
 	err = rows.Err()
-	return tests, err
+	return jobs, err
 }
 
-func (s PostgresStore) Get(id int) (Test, error) {
-	var test Test
-	sqlStatement := `
-		SELECT id, delay, queue, team_id, user_id, description, payload 
-		FROM tests WHERE id = $1`
+func (s PostgresStore) Get(id int) (Job, error) {
+	var job Job
+	sqlStatement := `SELECT id, delay, queue, team_id, user_id, description, payload 
+					FROM jobs WHERE id = $1`
 
 	row := s.DbStore.QueryRow(sqlStatement, id)
-	err := row.Scan(&test.Id, &test.Delay, &test.Queue, &test.TeamId,
-		&test.UserId, &test.Description, &test.Payload)
+	err := row.Scan(&job.Id, &job.Delay, &job.Queue, &job.TeamId,
+		&job.UserId, &job.Description, &job.Payload)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		return test, errors.New("Error getting test: " + strconv.Itoa(id) + " not found")
+		return job, errors.New("Error getting job: " + strconv.Itoa(id) + " not found")
 	case err == nil:
-		return test, nil
+		return job, nil
 	default:
 		panic(err)
 	}
 }
 
 func (s PostgresStore) Delete(id int) error {
-	sqlStatement := `DELETE FROM tests WHERE id = $1;`
+	sqlStatement := `DELETE FROM jobs WHERE id = $1;`
 	_, err := s.DbStore.Exec(sqlStatement, id)
 
 	return err

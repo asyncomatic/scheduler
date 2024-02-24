@@ -3,8 +3,8 @@ package internal
 import "net/url"
 
 type Store interface {
-	Add(test Test) (int, error)
-	List(values url.Values) ([]Test, error)
-	Get(id int) (Test, error)
+	Add(job Job) (int, error)
+	List(values url.Values) ([]Job, error)
+	Get(id int) (Job, error)
 	Delete(id int) error
 }
