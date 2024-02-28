@@ -1,50 +1,50 @@
-package internal
+package postgres
 
 import (
 	"database/sql"
 	"errors"
+	"github.com/caitlinelfring/go-env-default"
 	_ "github.com/lib/pq"
-	"net/url"
+	"scheduler/models"
 	"strconv"
 )
 
-type PostgresStore struct {
-	DbStore *sql.DB
+type JobsDao struct {
+	db *sql.DB
 }
 
-func NewPostgresStore(opts *PostgresOptions) *PostgresStore {
-	db, err := sql.Open("postgres", opts.ConnString())
-	if err != nil {
-		panic(err)
-	}
-
-	return &PostgresStore{db}
+func NewPostgresJobsDao() *JobsDao {
+	return &JobsDao{}
 }
 
-func (s PostgresStore) Add(job Job) (int, error) {
+func (s *JobsDao) DBConn(db *sql.DB) {
+	s.db = db
+}
+
+func (s *JobsDao) Add(job *models.Job) (int, error) {
 	id := 0
 	sqlStatement := `INSERT INTO jobs (delay, queue, team_id, user_id, description, payload)
 					VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
 
-	err := s.DbStore.QueryRow(sqlStatement,
+	err := s.db.QueryRow(sqlStatement,
 		job.Delay, job.Queue, job.TeamId, job.UserId, job.Description, job.Payload).Scan(&id)
 
 	return id, err
 }
 
-func (s PostgresStore) List(values url.Values) ([]Job, error) {
-	jobs := make([]Job, 0)
+func (s *JobsDao) List() ([]models.Job, error) {
+	jobs := make([]models.Job, 0)
 	sqlStatement := `SELECT id, delay, queue, team_id, user_id, description, payload
 					FROM jobs LIMIT 100`
 
-	rows, err := s.DbStore.Query(sqlStatement)
+	rows, err := s.db.Query(sqlStatement)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		job := &Job{}
+		job := &models.Job{}
 		err = rows.Scan(&job.Id, &job.Delay, &job.Queue, &job.TeamId,
 			&job.UserId, &job.Description, &job.Payload)
 		if err != nil {
@@ -58,12 +58,12 @@ func (s PostgresStore) List(values url.Values) ([]Job, error) {
 	return jobs, err
 }
 
-func (s PostgresStore) Get(id int) (Job, error) {
-	var job Job
+func (s *JobsDao) Get(id int) (models.Job, error) {
+	var job models.Job
 	sqlStatement := `SELECT id, delay, queue, team_id, user_id, description, payload 
 					FROM jobs WHERE id = $1`
 
-	row := s.DbStore.QueryRow(sqlStatement, id)
+	row := s.db.QueryRow(sqlStatement, id)
 	err := row.Scan(&job.Id, &job.Delay, &job.Queue, &job.TeamId,
 		&job.UserId, &job.Description, &job.Payload)
 	switch {
@@ -76,9 +76,15 @@ func (s PostgresStore) Get(id int) (Job, error) {
 	}
 }
 
-func (s PostgresStore) Delete(id int) error {
+func (s *JobsDao) Delete(id int) error {
 	sqlStatement := `DELETE FROM jobs WHERE id = $1;`
-	_, err := s.DbStore.Exec(sqlStatement, id)
+	_, err := s.db.Exec(sqlStatement, id)
 
 	return err
+}
+
+func (s *JobsDao) hydrate(token string, job *models.Job) error {
+	job.Queue = env.GetDefault("KAFKA_DEFAULT_TOPIC", "devcloud")
+
+	return nil
 }

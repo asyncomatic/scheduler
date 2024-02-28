@@ -1,28 +1,28 @@
-package internal
+package kafka
 
 import (
 	"encoding/json"
 	"fmt"
-	kafka "github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"os"
+	"scheduler/models"
 )
 
-type KafkaQueue struct {
+type Writer struct {
 	producer *kafka.Producer
 }
 
-func NewKafkaQueue(opts *KafkaOptions) *KafkaQueue {
-
-	p, err := kafka.NewProducer(opts.ConfigMap())
+func NewQueueWriter() *Writer {
+	p, err := kafka.NewProducer(NewKafkaOptions().ConfigMap())
 	if err != nil {
 		fmt.Printf("Failed to create producer: %s\n", err)
 		os.Exit(1)
 	}
 
-	return &KafkaQueue{p}
+	return &Writer{p}
 }
 
-func (k *KafkaQueue) Write(job Job) error {
+func (k *Writer) Write(job models.Job) error {
 	topic := job.Queue
 	msg, err := json.Marshal(job)
 	if err != nil {

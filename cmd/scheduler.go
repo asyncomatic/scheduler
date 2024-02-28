@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"github.com/caitlinelfring/go-env-default"
 	"net/http"
-	"scheduler/internal"
+	"scheduler/auth"
+	"scheduler/dal"
+	"scheduler/database"
+	"scheduler/handlers"
+	"scheduler/queue"
 )
 
 func routeNotFound(w http.ResponseWriter, r *http.Request) {
@@ -13,27 +17,27 @@ func routeNotFound(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	route := env.GetDefault("SCHEDULER_ROUTE", "/jobs")
-	port := fmt.Sprintf(":%s", env.GetDefault("SCHEDULER_PORT", "8080"))
+	queueType := env.GetDefault("SCHEDULER_QUEUE_TYPE", "_default")
+	queueWriter := queue.NewQueueWriter(queueType)
 
-	storeopts := internal.NewPostgresOptions()
-	store := internal.NewPostgresStore(storeopts)
-	defer func(DbStore *sql.DB) {
-		_ = DbStore.Close()
-	}(store.DbStore)
+	dbType := env.GetDefault("SCHEDULER_DB_TYPE", "_default")
+	db := database.NewDBConn(dbType)
+	defer func(conn *sql.DB) {
+		_ = conn.Close()
+	}(db)
 
-	queueopts := internal.NewKafkaOptions()
-	queue := internal.NewKafkaQueue(queueopts)
+	authType := env.GetDefault("SCHEDULER_AUTH_TYPE", "_default")
+	authHandler := auth.NewAuthHandler(authType)
 
-	jobsHandler := internal.NewJobsHandler(route, store, queue)
+	jobsHandler := handlers.NewJobsHandler(dal.NewJobsDao(db, dbType), queueWriter)
 
 	mux := http.NewServeMux()
-
-	mux.Handle(route, jobsHandler)
-	mux.Handle(fmt.Sprintf("%s/", route), jobsHandler)
+	mux.Handle("/jobs", authHandler.Authn(jobsHandler.ServeHTTP))
+	mux.Handle("/jobs/", authHandler.Authn(jobsHandler.ServeHTTP))
 
 	mux.Handle("/", http.HandlerFunc(routeNotFound))
 
+	port := fmt.Sprintf(":%s", env.GetDefault("SCHEDULER_PORT", "8080"))
 	err := http.ListenAndServe(port, mux)
 	if err != nil {
 		return
