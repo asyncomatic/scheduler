@@ -3,7 +3,6 @@ package postgres
 import (
 	"database/sql"
 	"errors"
-	"github.com/caitlinelfring/go-env-default"
 	_ "github.com/lib/pq"
 	"scheduler/models"
 	"strconv"
@@ -81,10 +80,4 @@ func (s *JobsDao) Delete(id int) error {
 	_, err := s.db.Exec(sqlStatement, id)
 
 	return err
-}
-
-func (s *JobsDao) hydrate(token string, job *models.Job) error {
-	job.Queue = env.GetDefault("KAFKA_DEFAULT_TOPIC", "devcloud")
-
-	return nil
 }
