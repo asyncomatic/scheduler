@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/caitlinelfring/go-env-default"
 	"net/http"
 	"regexp"
 	"scheduler/dal"
@@ -74,24 +73,16 @@ func (h *JobsHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *JobsHandler) create(w http.ResponseWriter, r *http.Request) {
-	var jobReq models.JobRequest
+	var job models.Job
 
-	err := json.NewDecoder(r.Body).Decode(&jobReq)
+	err := json.NewDecoder(r.Body).Decode(&job)
 	if err != nil {
 		msg := fmt.Sprintf("Invalid json format for job: %s", err.Error())
 		reply(w, http.StatusBadRequest, msg)
 		return
 	}
 
-	job := &models.Job{
-		Delay:       jobReq.Delay,
-		Description: jobReq.Description,
-		Payload:     jobReq.Payload}
-
-	token := strings.TrimLeft(r.Header.Get("Authorization"), "Bearer ")
-	err = h.hydrate(token, job)
-
-	id, err := h.jobsDao.Add(job)
+	id, err := h.jobsDao.Add(&job)
 	if err != nil {
 		msg := fmt.Sprintf("Error storing job: %s", err.Error())
 		reply(w, http.StatusInternalServerError, msg)
@@ -173,14 +164,6 @@ func (h *JobsHandler) delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", r.Host+r.RequestURI)
 	reply(w, http.StatusAccepted)
 	return
-}
-
-func (h *JobsHandler) hydrate(token string, job *models.Job) error {
-	job.Queue = env.GetDefault("KAFKA_DEFAULT_TOPIC", "devcloud")
-	job.TeamId = 666
-	job.UserId = 69
-
-	return nil
 }
 
 func reply(w http.ResponseWriter, status int, msg ...string) {
