@@ -10,6 +10,7 @@ COPY . .
 RUN CGO_ENABLED=1 GOOS=linux go build -o /dist/scheduler cmd/scheduler.go
 
 FROM golang:1.21
+LABEL org.opencontainers.image.source=https://github.com/asyncomatic/scheduler
 
 COPY --from=builder /dist/scheduler .
 
