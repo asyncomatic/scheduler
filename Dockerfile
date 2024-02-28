@@ -1,11 +1,19 @@
+FROM golang:1.21 as builder
+
+WORKDIR /build
+COPY go.mod .
+COPY go.sum .
+RUN go mod download && \
+    go mod verify
+
+COPY . .
+RUN CGO_ENABLED=1 GOOS=linux go build -o /dist/scheduler cmd/scheduler.go
+
 FROM golang:1.21
 
-WORKDIR /app
-COPY . .
-RUN go mod download
+COPY --from=builder /dist/scheduler .
 
-RUN CGO_ENABLED=1 GOOS=linux go build cmd/scheduler.go
-
+USER 65534
 EXPOSE 8080
 
-CMD ["/app/scheduler"]
+ENTRYPOINT ["./scheduler"]
