@@ -1,7 +1,11 @@
 package models
 
 type JobRequest struct {
-	Delay       int    `json:"delay"`
-	Description string `json:"description"`
-	Payload     string `json:"payload"`
+	Id         int                    `json:"id"`
+	Delay      int                    `json:"delay"`
+	Queue      string                 `json:"queue"`
+	Class      string                 `json:"class"`
+	Method     string                 `json:"method"`
+	RetryCount int                    `json:"retry_count"`
+	State      map[string]interface{} `json:"state,omitempty"`
 }

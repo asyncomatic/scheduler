@@ -7,5 +7,5 @@ type Job struct {
 	Class      string `json:"class"`
 	Method     string `json:"method"`
 	RetryCount int    `json:"retry_count"`
-	Data       string `json:"data"`
+	State      string `json:"state"`
 }

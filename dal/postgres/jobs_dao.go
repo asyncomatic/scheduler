@@ -22,18 +22,18 @@ func (s *JobsDao) DBConn(db *sql.DB) {
 
 func (s *JobsDao) Add(job *models.Job) (int, error) {
 	id := 0
-	sqlStatement := `INSERT INTO jobs (delay, queue, class, method, retry_count, data)
+	sqlStatement := `INSERT INTO jobs (delay, queue, class, method, retry_count, state)
 					VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
 
 	err := s.db.QueryRow(sqlStatement,
-		job.Delay, job.Queue, job.Class, job.Method, job.RetryCount, job.Data).Scan(&id)
+		job.Delay, job.Queue, job.Class, job.Method, job.RetryCount, job.State).Scan(&id)
 
 	return id, err
 }
 
 func (s *JobsDao) List() ([]models.Job, error) {
 	jobs := make([]models.Job, 0)
-	sqlStatement := `SELECT id, delay, queue, class, method, retry_count, data
+	sqlStatement := `SELECT id, delay, queue, class, method, retry_count, state
 					FROM jobs LIMIT 100`
 
 	rows, err := s.db.Query(sqlStatement)
@@ -45,7 +45,7 @@ func (s *JobsDao) List() ([]models.Job, error) {
 	for rows.Next() {
 		job := &models.Job{}
 		err = rows.Scan(&job.Id, &job.Delay, &job.Queue, &job.Class,
-			&job.Method, &job.RetryCount, &job.Data)
+			&job.Method, &job.RetryCount, &job.State)
 		if err != nil {
 			panic(err)
 		}
@@ -59,12 +59,12 @@ func (s *JobsDao) List() ([]models.Job, error) {
 
 func (s *JobsDao) Get(id int) (models.Job, error) {
 	var job models.Job
-	sqlStatement := `SELECT id, delay, queue, class, method, retry_count, data 
+	sqlStatement := `SELECT id, delay, queue, class, method, retry_count, state 
 					FROM jobs WHERE id = $1`
 
 	row := s.db.QueryRow(sqlStatement, id)
 	err := row.Scan(&job.Id, &job.Delay, &job.Queue, &job.Class,
-		&job.Method, &job.RetryCount, &job.Data)
+		&job.Method, &job.RetryCount, &job.State)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return job, errors.New("Error getting job: " + strconv.Itoa(id) + " not found")

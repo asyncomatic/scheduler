@@ -73,13 +73,33 @@ func (h *JobsHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *JobsHandler) create(w http.ResponseWriter, r *http.Request) {
-	var job models.Job
+	var jobReq models.JobRequest
 
-	err := json.NewDecoder(r.Body).Decode(&job)
+	err := json.NewDecoder(r.Body).Decode(&jobReq)
 	if err != nil {
 		msg := fmt.Sprintf("Invalid json format for job: %s", err.Error())
 		reply(w, http.StatusBadRequest, msg)
 		return
+	}
+
+	job := models.Job{
+		Delay:      jobReq.Delay,
+		Queue:      jobReq.Queue,
+		Class:      jobReq.Class,
+		Method:     jobReq.Method,
+		RetryCount: jobReq.RetryCount,
+	}
+
+	if jobReq.State == nil {
+		job.State = "{}"
+	} else {
+		state, err := json.Marshal(jobReq.State)
+		if err != nil {
+			msg := fmt.Sprintf("Error marshalling job state: %s", err.Error())
+			reply(w, http.StatusInternalServerError, msg)
+			return
+		}
+		job.State = string(state)
 	}
 
 	id, err := h.jobsDao.Add(&job)
